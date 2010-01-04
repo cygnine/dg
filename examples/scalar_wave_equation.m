@@ -11,10 +11,8 @@ close all
 from labtools import spdiag
 from odesolve.coeffs import lserk4
 
-from speclab.orthopoly1d.jacobi.eval import eval_jacobi_poly
-
 from dg import plot_solution
-from dg.meshes import equidistant_mesh_1d
+from dg.meshes import random_mesh_1d equidistant_mesh_1d local_operators
 from dg.fluxes import lax_friedrichs as lf
 
 a = 2;  % wave speed
@@ -24,13 +22,14 @@ uexact = @(x,t) 1 + sin(2*pi*(x-a*t));
 
 interval = [0, 1];  % global x-interval 
 K = 9;              % Number of cells
-N = 4;              % (degree+1) of polynomial on each cell
+N = 6;              % (degree+1) of polynomial on each cell
 
 % Note that all of the steps below are now (in principle) independent of the
 % pde, save the choice of flux
 
 % Step 1: create the mesh
-mesh = equidistant_mesh_1d(interval, K, 'N', N);
+%mesh = equidistant_mesh_1d(interval, K, 'N', N);
+mesh = random_mesh_1d(interval, K, 'N', N);
 % impose periodic boundary conditions:
 mesh.face_to_face(1) = 2*K;  % "the exterior face on the left is the face on the right"
 mesh.face_to_face(2*K) = 1;  % "the exterior face on the right is the face on the left"
@@ -41,38 +40,13 @@ normal_plus = mesh.face_normals(mesh.face_to_face);
 
 % Step 2: Create mass, stiffness matrices on the mesh:
 
-% Form the local Vandermonde matrix:
-V = eval_jacobi_poly(mesh.local_nodes, 0:(N-1), 'alpha', 0, 'beta', 0);
+ops = local_operators(mesh.local_nodes);
 
-% The matrix V takes point evaluations of a function and transforms them into
-% the expansions coefficients of a Legendre polynomial expansion. To get the
-% inverse transformation:
-invV = eye(N)/V;  % same as inv(V)
-
-% The mass matrix is then defined as 
-local_mass_inv = V*V.';
-
-% The differentiation matrix:
-% This matrix takes point evaluations to expansion coefficients, differentiates
-% the expansion, then interpolates back to the point locations.
-dps = eval_jacobi_poly(mesh.local_nodes, 0:(N-1), 'alpha', 0, 'beta', 0, 'd', 1);
-local_diffmat = dps*invV;
-
-local_stiffness = inv(local_mass_inv)*local_diffmat;
-weak_diffmat = local_mass_inv*(local_stiffness.');
-
-% Note that since this is a *local* matrix, it operates correctly for functions
+% Note that since these are all *local* matrices, they operate correctly for functions
 % defined on [-1,1]. In order to get the affine scale correct on each cell,
 % we'll have to multiply by the jacobian, which we'll do on the fly in the code.
 
 jacobian = spdiag(1./mesh.cell_scale); % Scales for each element
-
-% Last thing: must compute a matrix to "lift" boundary fluxes to interior of
-% elements. It acts as the boundary integral in ibp. It's a local matrix: it
-% operates on one element at a time.
-temp = zeros([N 2]); 
-temp(1,1) = -1; temp(N,2) = 1;  
-liftmat = local_mass_inv*temp;
 
 % Step 3: specify time evolution operator 
 rk = lserk4();   % Gets R-K coefficients
@@ -114,8 +88,8 @@ while t<T;
     u_minus = reshape(u_minus, [2, K]);
 
     % Evaluate the "local" rhs:
-    rhs = -local_diffmat*(f(u)) + liftmat*(f(u_minus) - flux); % "strong" form
-    %rhs = weak_diffmat*(f(u)) - liftmat*(flux); % "weak" form
+    rhs = -ops.strong_diffmat*(f(u)) + ops.liftmat*(f(u_minus) - flux); % "strong" form
+    %rhs = ops.weak_diffmat*(f(u)) - ops.liftmat*(flux); % "weak" form
 
     rhs = rhs*jacobian;   % scale appropriately to "global" rhs
 

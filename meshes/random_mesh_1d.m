@@ -21,7 +21,9 @@ end
 
 opt = strict_inputs({'local_nodes', 'N'}, {[], 5}, [], varargin{:});
 
-cell_boundaries = linspace(interval(1), interval(2), K+1).';
+cell_boundaries = (sort(rand([K-1 1]))-0.5)*diff(interval) + mean(interval);
+cell_boundaries = [interval(1); cell_boundaries; interval(2)];
+%cell_boundaries = linspace(interval(1), interval(2), K+1).';
 cells = [cell_boundaries(1:K) cell_boundaries(2:end)];
 if isempty(opt.local_nodes)
   mesh = mesh_from_cells_1d(cells, 'N', opt.N);

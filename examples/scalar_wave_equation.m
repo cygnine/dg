@@ -15,7 +15,7 @@ from dg import plot_solution
 from dg.meshes import random_mesh_1d equidistant_mesh_1d local_operators
 from dg.fluxes import lax_friedrichs as lf
 
-a = 2;  % wave speed
+a = -2;  % wave speed
 u0 = @(x) 1+ sin(2*pi*x);  % initial data
 f = @(u) a*u;  % The flux function
 uexact = @(x,t) 1 + sin(2*pi*(x-a*t));
@@ -28,8 +28,9 @@ N = 6;              % (degree+1) of polynomial on each cell
 % pde, save the choice of flux
 
 % Step 1: create the mesh
-%mesh = equidistant_mesh_1d(interval, K, 'N', N);
-mesh = random_mesh_1d(interval, K, 'N', N);
+mesh = equidistant_mesh_1d(interval, K, 'N', N);
+%mesh = random_mesh_1d(interval, K, 'N', N);
+
 % impose periodic boundary conditions:
 mesh.face_to_face(1) = 2*K;  % "the exterior face on the left is the face on the right"
 mesh.face_to_face(2*K) = 1;  % "the exterior face on the right is the face on the left"
@@ -62,7 +63,7 @@ dt = 0.5*mesh.dx/(abs(a));  % This is a heuristic, but it turns out to be approx
 % Step 4: start solving
 u = u0(mesh.nodes);  % Evaluate initial data
 myplots = plot(mesh.nodes, u, '.'); hold on;
-eplot = plot(mesh.nodes(:), uexact(mesh.nodes(:),t), 'k');
+eplot = plot(mesh.nodes(:), uexact(mesh.nodes(:),t), 'k--');
 axis_limits = [mesh.interval, min(u(:)), max(u(:))];
 
 ku = zeros(size(u)); % Allocating storage for RK

@@ -12,17 +12,17 @@ function[mesh] = mesh_from_cells_1d(cells, varargin)
 %   (local_nodes), this template is used to generate a global nodal set;
 %   otherwise, the Legendre Gauss-Lobatto nodes are used.
 
-persistent repnodes glq strict_inputs
+persistent repnodes glq strict_inputs spdiag
 if isempty(repnodes)
   from dg.meshes import replicate_local_nodes as repnodes
   from speclab.orthopoly1d.jacobi.quad import gauss_lobatto_quadrature as glq
-  from labtools import strict_inputs
+  from labtools import strict_inputs spdiag
 end
 
-opt = strict_inputs({'local_nodes','N'}, {[],5}, [], varargin{:});
+opt = strict_inputs({'local_nodes','local_weights', 'N'}, {[],[],5}, [], varargin{:});
 
 if isempty(opt.local_nodes)
-  opt.local_nodes = glq(opt.N, 'alpha', 0, 'beta', 0);
+  [opt.local_nodes, opt.local_weights] = glq(opt.N, 'alpha', 0, 'beta', 0);
 else
   opt.N = length(opt.local_nodes);
 end
@@ -37,7 +37,9 @@ mesh.cell_scale = diff(mesh.cells,1,2)/2;
 mesh.cell_shift = mean(mesh.cells, 2);
 
 mesh.nodes = repnodes(opt.local_nodes, mesh.cells);
+mesh.weights = repmat(opt.local_weights, [1 mesh.K])*spdiag(mesh.cell_scale);
 mesh.local_nodes = opt.local_nodes;
+mesh.local_weights = opt.local_weights;
 
 % Global indices of nodes that lie on faces
 mesh.face_indices = [1 + (0:(mesh.K-1))*mesh.N; (1:mesh.K)*mesh.N];

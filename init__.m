@@ -6,3 +6,4 @@ function[dg] = init__()
 dg = recurse_files(pwd);
 dg.fluxes = matlab_import('fluxes');
 dg.meshes = matlab_import('meshes');
+dg.examples = matlab_import('examples');

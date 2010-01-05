@@ -74,5 +74,10 @@ mesh.face_to_face(a) = b;
 temp = find(mesh.face_to_face==0);
 mesh.face_to_face(temp) = temp;
 
+% outward pointing normal vectors for "interior" faces
+mesh.normal_minus = mesh.face_normals;
+% outward pointing normal vectors for "exterior" faces
+mesh.normal_plus = mesh.face_normals(mesh.face_to_face);
+
 % Smallest dx:
 mesh.dx = min(diff(mesh.local_nodes))*min(mesh.cell_scale);

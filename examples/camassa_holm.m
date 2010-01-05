@@ -1,9 +1,10 @@
-% This is a script that tests DG evolution of the 1D scalar wave equation
+% This is a script that tests DG evolution of the Camassa-Holm equation
 %
-%  u_t + a * u_x = 0
-%  u_t + (a*u)_x = u_t + (f(u))_x = 0
+%       q_t = p_x - f_x(u) - B_x(r),
+%             r = u_x
+%             p = (r*u)_x
 %
-% where a is the constant wave speed. The boundary conditions are periodic.
+% The boundary conditions are periodic.
 
 clear
 close all
@@ -13,23 +14,16 @@ from odesolve.coeffs import lserk4
 
 from dg import plot_solution
 from dg.meshes import random_mesh_1d equidistant_mesh_1d local_operators
-from dg.fluxes import lax_friedrichs as lf
-from dg.drivers import scalar_wave as rhs_driver
+from dg.drivers import camassa_holm_ldg as rhs_driver
+from dg.examples import helmholtz_matrix
 
-a = -2;  % wave speed
-u0 = @(x) 1+ sin(2*pi*x);  % initial data
-f = @(u) a*u;  % The flux function
-uexact = @(x,t) 1 + sin(2*pi*(x-a*t));
+u0 = @(x) 0.25*exp(-abs(x));  % Initial data
+kappa = 0;
+uexact = @(x,t) 0.25*exp(-abs(x-0.25*t));
 
-interval = [0, 1];  % global x-interval 
-K = 9;              % Number of cells
-N = 6;              % (degree+1) of polynomial on each cell
-
-% Note that all of the steps below are now (in principle) independent of the
-% pde, save the choice of flux
-
-% A wrapper for the numerical flux:
-numerical_flux = @(um, up, nm, np, fl) lf(um, up, nm, np, fl, abs(a));
+interval = [-25, 25];  % global x-interval 
+K = 100;              % Number of cells
+N = 5;              % (degree+1) of polynomial on each cell
 
 % Step 1: create the mesh
 mesh = equidistant_mesh_1d(interval, K, 'N', N);
@@ -44,11 +38,12 @@ mesh.normal_plus = mesh.face_normals(mesh.face_to_face);
 
 % Step 2: Create mass, stiffness matrices on the mesh:
 ops = local_operators(mesh.local_nodes);
-
-% Note that since these are all *local* matrices, they operate correctly for functions
-% defined on [-1,1]. In order to get the affine scale correct on each cell,
-% we'll have to multiply by the jacobian, which we'll do on the fly in the code.
 jacobian = spdiag(1./mesh.cell_scale); % Scales for each element
+
+% Now get Helmholtz solver:
+A = helmholtz_matrix(1, mesh, ops, jacobian);
+A = inv(A);
+A = A(1:end/2, 1:end/2);
 
 % Step 3: specify time evolution operator 
 rk = lserk4();   % Gets R-K coefficients
@@ -57,7 +52,7 @@ t0 = 0;  % initial time
 t = t0;  % current time
 T = 3;   % terminal time
 
-dt = 0.5*mesh.dx/(abs(a));  % This is a heuristic, but it turns out to be approximately
+dt = 0.5*mesh.dx^2;  % This is a heuristic, but it turns out to be approximately
                             % correct. If you don't decrease dt as you increase N, you'll
                             % get an instability very quickly.
 
@@ -81,7 +76,7 @@ while t<T;
     stage_time = t + dt*rk.c(q);   % Unnecessary since rhs doesn't depend on t
 
     % Compute numerical RHS:
-    rhs = rhs_driver(u, mesh, ops, jacobian, f, numerical_flux);
+    rhs = rhs_driver(u, mesh, ops, jacobian, A, kappa);
 
     % Update RK data
     ku = rk.a(q)*ku + dt*rhs;

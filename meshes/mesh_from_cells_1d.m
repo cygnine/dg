@@ -81,3 +81,5 @@ mesh.normal_plus = mesh.face_normals(mesh.face_to_face);
 
 % Smallest dx:
 mesh.dx = min(diff(mesh.local_nodes))*min(mesh.cell_scale);
+
+mesh.jacobians = spdiag(1./mesh.cell_scale);
